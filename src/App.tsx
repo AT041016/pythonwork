@@ -1,7 +1,7 @@
 import React, { useState } from 'react';
 import { Canvas } from '@react-three/fiber';
 import { OrbitControls } from '@react-three/drei';
-import Player from './player/player';
+import Player from './player';
 import GameScene from './GameScene';
 
 const App: React.FC = () => {
