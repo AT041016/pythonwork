@@ -4,17 +4,25 @@ import * as THREE from 'three';
 import { FBXLoader, GLTFLoader, TextGeometry } from 'three/examples/jsm/Addons.js';
 import Bullet from './Bullet';
 
-const PLAYER_POSITION = new THREE.Vector3(0, 0, 0);
 
 // Boss组件
 function Boss(
-    { playerPosition = PLAYER_POSITION, onPlayerHit = () => { } }
+    {
+        playerPosition,
+        onPlayerHit
+    }: {
+        playerPosition: THREE.Vector3;
+        onPlayerHit: () => void;
+    }
 ) {
     const fbx = useLoader(FBXLoader, 'Spider.fbx');
     const texture = useLoader(THREE.TextureLoader, 'DefaultMaterial_albedo.png');
     const lineRef = useRef(); // 用于绘制红色实线
-    const bossRef = useRef(new THREE.Vector3(5, 0, 5));
-    const [bossPosition, setBossPosition] = useState(new THREE.Vector3(5, 0, 5)); // Boss初始位置
+    const bossRef = useRef<THREE.Group>(null);
+
+
+    const bossPositionRef = useRef(new THREE.Vector3(5, 0, 5));
+    // const [bossPosition, setBossPosition] = useState(new THREE.Vector3(5, 0, 5)); // Boss初始位置
     const [bullets, setBullets] = useState<{ position: THREE.Vector3; direction: THREE.Vector3; spawnTime: number }[]>([]);
     const lastShootTime = useRef(0); // 记录上次发射子弹的时间
     const [isPaused, setIsPaused] = useState(false); // 控制暂停状态
@@ -22,8 +30,18 @@ function Boss(
     const shootCount = useRef(0); // 记录发射子弹的次数
     const [health, setHealth] = useState(100); // Boss的生命值
 
+    const getBossPosition = () => {
+        return bossRef.current ?
+            bossRef.current.position.clone() :
+            new THREE.Vector3(5, 0, 5);
+    };
+
+
     // Boss移动逻辑
     useFrame((state) => {
+        if (!bossRef.current) return;
+
+        const bossPosition = bossRef.current.position;
         if (isPaused && lineRef.current) {
             // 更新红线的几何数据，使其长度覆盖 Boss 和玩家之间的距离
             const points = [bossPosition, playerPosition];
@@ -73,6 +91,7 @@ function Boss(
 
     // Boss发射子弹
     const shootBullet = () => {
+        const bossPosition = getBossPosition();
         if (!(playerPosition instanceof THREE.Vector3) || !(bossPosition instanceof THREE.Vector3)) {
             throw new Error('playerPosition 或 bossPosition 不是 THREE.Vector3 类型');
         }
@@ -94,6 +113,7 @@ function Boss(
     };
 
     const shootaround = () => {
+        const bossPosition = getBossPosition();
         if (!(bossPosition instanceof THREE.Vector3)) {
             throw new Error('bossPosition 不是 THREE.Vector3 类型');
         }
@@ -112,11 +132,13 @@ function Boss(
     // Boss移动
     const move = () => {
         if (bossRef.current) {
-            const direction = new THREE.Vector3().subVectors(playerPosition, bossPosition).normalize();
-            bossPosition.add(direction.multiplyScalar(0.005));
-            bossRef.current.position.copy(bossPosition);
+            const direction = new THREE.Vector3()
+                .subVectors(playerPosition, bossRef.current.position)
+                .normalize();
 
-            if (bossPosition.distanceTo(playerPosition) < 1) {
+            bossRef.current.position.add(direction.multiplyScalar(0.05));
+
+            if (bossRef.current.position.distanceTo(playerPosition) < 1) {
                 onPlayerHit();
             }
         }
@@ -124,9 +146,10 @@ function Boss(
 
     //冲刺
     const jump = () => {
+        const bossPosition = getBossPosition();
         if (bossRef.current) {
             const direction = new THREE.Vector3().subVectors(playerPosition, bossPosition).normalize();
-            bossPosition.add(direction.multiplyScalar(3)); // 缓慢移动
+            bossPosition.add(direction.multiplyScalar(5)); // 缓慢移动
             bossRef.current.position.copy(bossPosition);
             // 检测碰撞
             if (bossPosition.distanceTo(playerPosition) < 1) {
@@ -142,7 +165,7 @@ function Boss(
 
     return (
         <group ref={bossRef} >
-            <primitive object={fbx} scale={[0.3, 0.3, 0.3]}>
+            <primitive object={fbx} scale={[0.5, 0.5, 0.5]}>
                 <meshStandardMaterial map={texture} />
             </primitive>
             {bullets.map((bullet, index) => (
@@ -157,11 +180,11 @@ function Boss(
             )}
 
             {/* 显示Boss的血量条 */}
-            <mesh position={[bossPosition.x, bossPosition.y + 2, bossPosition.z]}>
+            <mesh position={[bossPositionRef.current.x, bossPositionRef.current.y + 2, bossPositionRef.current.z]}>
                 <planeGeometry args={[2, 0.2]} />
                 <meshBasicMaterial color="red" />
             </mesh>
-            <mesh position={[bossPosition.x - 1 + (health / 100), bossPosition.y + 2, bossPosition.z]}>
+            <mesh position={[bossPositionRef.current.x - 1 + (health / 100), bossPositionRef.current.y + 2, bossPositionRef.current.z]}>
                 <planeGeometry args={[health / 100 * 2, 0.2]} />
                 <meshBasicMaterial color="green" />
             </mesh>

@@ -24,7 +24,7 @@ interface Bullet {
 }
 
 interface PlayerProps {
-  position?: [number, number, number];
+  position: THREE.Vector3;
   setPosition?: (position: THREE.Vector3) => void;
   onAimingChange?: (isAiming: boolean) => void;
 }
@@ -44,6 +44,12 @@ const Player = forwardRef<Group, PlayerProps>(({ position, setPosition, onAiming
   const playerRef = ref || internalRef;
 
   const initialPosition = new Vector3(...position);
+  const prevPosition = useRef(new Vector3(...position));
+
+  // 新增：使用 ref 存储内部位置状态
+  const internalPosition = useRef(new Vector3(...position));
+  // 存储初始 Y 位置（用于跳跃计算）
+  const initialY = useRef(position[1]);
 
   const bodyParts = {
     head: [0.8, 0.8, 0.8] as BodyPartSize,
@@ -124,6 +130,17 @@ const Player = forwardRef<Group, PlayerProps>(({ position, setPosition, onAiming
     forward.applyQuaternion(playerRef.current.quaternion);
     return forward.normalize();
   };
+
+  useEffect(() => {
+    const newPos = new Vector3(...position);
+    if (!newPos.equals(internalPosition.current)) {
+      internalPosition.current.copy(newPos);
+      initialY.current = newPos.y;
+      if (internalRef.current) {
+        internalRef.current.position.copy(newPos);
+      }
+    }
+  }, [position]);
 
   // 键盘事件监听
   useEffect(() => {
@@ -316,25 +333,66 @@ const Player = forwardRef<Group, PlayerProps>(({ position, setPosition, onAiming
     const right = new Vector3();
     right.crossVectors(new Vector3(0, 1, 0), forward).normalize();
 
-    // 水平移动角色
-    if (keys.w) playerGroup.position.add(forward.clone().multiplyScalar(speed));
-    if (keys.s) playerGroup.position.add(forward.clone().multiplyScalar(-speed));
-    if (keys.a) playerGroup.position.add(right.clone().multiplyScalar(speed));
-    if (keys.d) playerGroup.position.add(right.clone().multiplyScalar(-speed));
+    //更新内部位置引用
+    const currentPosition = internalPosition.current;
+
+    // 保存移动前的Y值（用于跳跃检测）
+    const prevY = currentPosition.y;
+
+    // // 水平移动角色
+    // if (keys.w) playerGroup.position.add(forward.clone().multiplyScalar(speed));
+    // if (keys.s) playerGroup.position.add(forward.clone().multiplyScalar(-speed));
+    // if (keys.a) playerGroup.position.add(right.clone().multiplyScalar(speed));
+    // if (keys.d) playerGroup.position.add(right.clone().multiplyScalar(-speed));
+
+
+    // // 处理跳跃
+    // if (isJumping) {
+    //   // 应用重力
+    //   setJumpVelocity(jumpVelocity - gravity);
+    //   playerGroup.position.y += jumpVelocity;
+
+    //   // 检测是否落地
+    //   if (playerGroup.position.y <= initialPosition.y) {
+    //     playerGroup.position.y = initialPosition.y;
+    //     setIsJumping(false);
+    //     setJumpVelocity(0);
+    //   }
+    // }
+
+    // 保存移动前的值用于比较
+    const prevPos = internalPosition.current.clone();
+
+    // 移动逻辑（更新 internalPosition）
+    if (keys.w) internalPosition.current.add(forward.clone().multiplyScalar(speed));
+    if (keys.s) internalPosition.current.add(forward.clone().multiplyScalar(-speed));
+    if (keys.a) internalPosition.current.add(right.clone().multiplyScalar(speed));
+    if (keys.d) internalPosition.current.add(right.clone().multiplyScalar(-speed));
+
+    // 更新组位置
+    playerGroup.position.copy(internalPosition.current);
 
     // 处理跳跃
     if (isJumping) {
-      // 应用重力
-      setJumpVelocity(jumpVelocity - gravity);
-      playerGroup.position.y += jumpVelocity;
+      internalPosition.current.y += jumpVelocity;
+      playerGroup.position.y = internalPosition.current.y;
 
-      // 检测是否落地
-      if (playerGroup.position.y <= initialPosition.y) {
-        playerGroup.position.y = initialPosition.y;
+      // 落地检测
+      if (internalPosition.current.y <= initialY.current) {
+        internalPosition.current.y = initialY.current;
+        playerGroup.position.y = initialY.current;
         setIsJumping(false);
         setJumpVelocity(0);
       }
     }
+
+    // 新增：位置变化时同步到外部
+    if (setPosition && !prevPos.equals(internalPosition.current)) {
+      setPosition(internalPosition.current.clone());
+    }
+
+    // 更新 prevPosition 为当前帧的位置
+    prevPosition.current.copy(internalPosition.current);
 
     // 蹲下效果
     if (bodyRef.current) {
@@ -636,7 +694,11 @@ const Player = forwardRef<Group, PlayerProps>(({ position, setPosition, onAiming
         </group>
       )}
 
-      <group ref={playerRef} position={initialPosition.toArray()} visible={!isAiming}>
+      <group
+        ref={playerRef}
+        // position={initialPosition.toArray()}
+        position={internalPosition.current.toArray()}
+        visible={!isAiming}>
         {/* 头部 */}
         <mesh ref={headRef} position={[0, 0.9, 0]}>
           <boxGeometry args={bodyParts.head} />
