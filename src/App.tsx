@@ -1,22 +1,31 @@
 import React, { useState } from 'react';
 import { Canvas } from '@react-three/fiber';
 import { OrbitControls } from '@react-three/drei';
-import Player from './player';
+import Player from './player/player';
 import GameScene from './GameScene';
+import Boss from './component/Boss';
+import * as THREE from 'three';
+
+
 
 const App: React.FC = () => {
   const [enableOrbitControls, setEnableOrbitControls] = useState(true);
   const [showInstructions, setShowInstructions] = useState(true);
-  
+  const [playerPosition, setPlayerPosition] = useState(new THREE.Vector3(0, 0, 0));
+
+  const changeposition = (position: THREE.Vector3) => {
+    setPlayerPosition(position);
+  }
+
   // 处理玩家瞄准状态变化
   const handleAimingChange = (isAiming: boolean) => {
     setEnableOrbitControls(!isAiming);
   };
 
   return (
-    <div style={{ 
-      width: '100vw', 
-      height: '100vh', 
+    <div style={{
+      width: '100vw',
+      height: '100vh',
       position: 'relative',
       background: 'linear-gradient(135deg, #1a1a2e, #16213e)',
       overflow: 'hidden'
@@ -38,16 +47,19 @@ const App: React.FC = () => {
           shadow-mapSize-width={1024}
           shadow-mapSize-height={1024}
         />
-        
+
         {/* 粒子场景 */}
         <GameScene />
-        
+
         {/* 玩家角色 */}
-        <Player 
-          position={[0, 0, 0]}
+        <Player
+          position={playerPosition}
           onAimingChange={handleAimingChange}
+          setPosition={changeposition}
         />
-        
+
+        <Boss playerPosition={playerPosition} />
+
         {/* 轨道控制器 */}
         <OrbitControls
           enableDamping
@@ -55,7 +67,7 @@ const App: React.FC = () => {
           enabled={enableOrbitControls}
         />
       </Canvas>
-      
+
       {/* 控制说明 */}
       {showInstructions && (
         <div style={{
@@ -78,8 +90,8 @@ const App: React.FC = () => {
           <p><strong>滚轮</strong>: 缩放视角</p>
           <p><strong>空格</strong>: 向上移动</p>
           <p><strong>Shift</strong>: 向下移动</p>
-          
-          <button 
+
+          <button
             onClick={() => setShowInstructions(false)}
             style={{
               marginTop: '10px',
@@ -95,7 +107,7 @@ const App: React.FC = () => {
           </button>
         </div>
       )}
-      
+
       {/* 标题 */}
       <div style={{
         position: 'absolute',
@@ -113,10 +125,10 @@ const App: React.FC = () => {
           在粒子世界中探索，使用你的武器对抗未知的敌人！
         </p>
       </div>
-      
+
       {/* 显示/隐藏说明按钮 */}
       {!showInstructions && (
-        <button 
+        <button
           onClick={() => setShowInstructions(true)}
           style={{
             position: 'absolute',
@@ -137,5 +149,6 @@ const App: React.FC = () => {
     </div>
   );
 };
+
 
 export default App;
