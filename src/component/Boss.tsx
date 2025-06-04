@@ -21,7 +21,7 @@ function Boss(
     const bossRef = useRef<THREE.Group>(null);
 
 
-    const bossPositionRef = useRef(new THREE.Vector3(5, 0, 5));
+    const bossPositionRef = useRef(new THREE.Vector3(0, 0, 5));
     // const [bossPosition, setBossPosition] = useState(new THREE.Vector3(5, 0, 5)); // Boss初始位置
     const [bullets, setBullets] = useState<{ position: THREE.Vector3; direction: THREE.Vector3; spawnTime: number }[]>([]);
     const lastShootTime = useRef(0); // 记录上次发射子弹的时间
@@ -82,7 +82,7 @@ function Boss(
             }
         }
         //判断距离，小于某个值，则冲刺
-        if (bossPosition.distanceTo(playerPosition) < 1) {
+        if (bossPosition.distanceTo(playerPosition) < 5) {
             //暂停一秒，取消所有的动作
             pauseMovement(); // 暂停一秒
         }
@@ -113,20 +113,20 @@ function Boss(
     };
 
     const shootaround = () => {
-        const bossPosition = getBossPosition();
-        if (!(bossPosition instanceof THREE.Vector3)) {
-            throw new Error('bossPosition 不是 THREE.Vector3 类型');
-        }
-        const bulletCount = 60; // 子弹数量
-        const angleStep = (2 * Math.PI) / bulletCount; // 每个子弹的角度间隔
-        const spawnTime = performance.now() / 1000; // 记录子弹生成时间
+        const spawnTime = performance.now() / 1000;
+        const bulletCount = 60;
+        const angleStep = (2 * Math.PI) / bulletCount;
+
         const newBullets = Array.from({ length: bulletCount }, (_, i) => {
-            const angle = i * angleStep; // 当前子弹的角度
-            const direction = new THREE.Vector3(Math.cos(angle), 0, Math.sin(angle)).normalize(); // 计算方向
-            const bulletPosition = bossPosition.clone(); // 子弹初始位置
-            return { position: bulletPosition, direction, spawnTime };
+            const angle = i * angleStep;
+            return {
+                position: new THREE.Vector3(0, 0, 0), // 相对父级坐标
+                direction: new THREE.Vector3(Math.cos(angle), 0, Math.sin(angle)),
+                spawnTime
+            };
         });
-        setBullets((prevBullets) => [...prevBullets, ...newBullets]); // 添加新子弹到子弹列表
+
+        setBullets(prev => [...prev, ...newBullets]);
     };
 
     // Boss移动
@@ -143,6 +143,7 @@ function Boss(
             }
         }
     };
+
 
     //冲刺
     const jump = () => {
@@ -168,26 +169,26 @@ function Boss(
             <primitive object={fbx} scale={[0.5, 0.5, 0.5]}>
                 <meshStandardMaterial map={texture} />
             </primitive>
-            {bullets.map((bullet, index) => (
-                <Bullet key={index} position={bullet.position} />
-            ))}
 
-            {isPaused && (
-                <line ref={lineRef}>
-                    <bufferGeometry />
-                    <lineBasicMaterial color="red" />
-                </line>
-            )}
 
-            {/* 显示Boss的血量条 */}
-            <mesh position={[bossPositionRef.current.x, bossPositionRef.current.y + 2, bossPositionRef.current.z]}>
+            {/* 血条（相对坐标） */}
+            <mesh position={[0, 2, 0]}>
                 <planeGeometry args={[2, 0.2]} />
                 <meshBasicMaterial color="red" />
             </mesh>
-            <mesh position={[bossPositionRef.current.x - 1 + (health / 100), bossPositionRef.current.y + 2, bossPositionRef.current.z]}>
-                <planeGeometry args={[health / 100 * 2, 0.2]} />
+            <mesh position={[-1 + health / 100, 2, 0]}>
+                <planeGeometry args={[(health / 100) * 2, 0.2]} />
                 <meshBasicMaterial color="green" />
             </mesh>
+
+            {/* 子弹（作为子元素） */}
+            {bullets.map((bullet, index) => (
+                <Bullet
+                    key={index}
+                    position={bullet.position}
+                />
+            ))}
+
         </group>
     );
 }
