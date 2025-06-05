@@ -99,9 +99,15 @@ const Player = forwardRef<Group, PlayerProps>(({ position, setPosition, onAiming
 
   // 跳跃相关状态
   const [isJumping, setIsJumping] = useState(false);
-  const [jumpVelocity, setJumpVelocity] = useState(0);
+  // const [jumpVelocity, setJumpVelocity] = useState(0);
+  const jumpVelocity = useRef(0);
   const jumpForce = 0.3;
   const gravity = 0.015;
+  const [isGrounded, setIsGrounded] = useState(true);
+  const groundY = useRef(initialY.current);
+
+  const groundHeight = useRef(0);
+  const groundThreshold = useRef(0.1);
 
   // 蹲下相关状态
   const [isCrouching, setIsCrouching] = useState(false);
@@ -120,6 +126,9 @@ const Player = forwardRef<Group, PlayerProps>(({ position, setPosition, onAiming
   const cameraTargetPosition = useRef(new Vector3());
   const cameraCurrentPosition = useRef(new Vector3());
   const cameraSmoothing = useRef(0.1); // 平滑系数，值越小越平滑
+
+  const [health, setHealth] = useState(100);
+
 
   // 获取角色前方方向
   const getPlayerForward = () => {
@@ -151,10 +160,11 @@ const Player = forwardRef<Group, PlayerProps>(({ position, setPosition, onAiming
       if (e.key === 'd') setKeys((prev) => ({ ...prev, d: true }));
 
       // 空格触发跳跃
-      if (e.key === ' ' && !isJumping) {
+      if (e.key === ' ' && isGrounded) {
         setKeys((prev) => ({ ...prev, space: true }));
         setIsJumping(true);
-        setJumpVelocity(jumpForce);
+        setIsGrounded(false);
+        jumpVelocity.current = jumpForce;
       }
 
       // Shift触发蹲下
@@ -374,16 +384,23 @@ const Player = forwardRef<Group, PlayerProps>(({ position, setPosition, onAiming
 
     // 处理跳跃
     if (isJumping) {
-      internalPosition.current.y += jumpVelocity;
-      playerGroup.position.y = internalPosition.current.y;
+      // 更新垂直速度（应用重力）
+      jumpVelocity.current -= gravity * delta * 60;
 
-      // 落地检测
-      if (internalPosition.current.y <= initialY.current) {
-        internalPosition.current.y = initialY.current;
-        playerGroup.position.y = initialY.current;
+      // 更新垂直位置
+      internalPosition.current.y += jumpVelocity.current;
+
+      // 落地检测 - 使用当前角色的Y位置而不是固定初始值
+      if (internalPosition.current.y <= groundHeight.current + groundThreshold.current) {
+        internalPosition.current.y = groundHeight.current; // 确保角色落到地面的高度
         setIsJumping(false);
-        setJumpVelocity(0);
+        setIsGrounded(true);
+        jumpVelocity.current = 0;
       }
+    }
+
+    if (!isJumping && internalPosition.current.y > groundHeight.current) {
+      groundHeight.current = internalPosition.current.y - groundThreshold.current;
     }
 
     // 新增：位置变化时同步到外部
@@ -393,6 +410,7 @@ const Player = forwardRef<Group, PlayerProps>(({ position, setPosition, onAiming
 
     // 更新 prevPosition 为当前帧的位置
     prevPosition.current.copy(internalPosition.current);
+    playerGroup.position.y = internalPosition.current.y;
 
     // 蹲下效果
     if (bodyRef.current) {

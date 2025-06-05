@@ -82,7 +82,7 @@ function Boss(
             }
         }
         //判断距离，小于某个值，则冲刺
-        if (bossPosition.distanceTo(playerPosition) < 5) {
+        if (bossPosition.distanceTo(playerPosition) < 4) {
             //暂停一秒，取消所有的动作
             pauseMovement(); // 暂停一秒
         }
